@@ -1,29 +1,55 @@
-import http from 'http';
-import https from 'https';
-import url from 'url';
+import express from "express";
+import fetch from "node-fetch";
 
-const PORT = process.env.PORT || 3000;
+const app = express();
 
-const server = http.createServer((req, res) => {
-  const query = url.parse(req.url, true).query;
-  const target = query.url;
+app.get("/", async (req, res) => {
+  const target = req.query.url;
+  if (!target) return res.send("URL não fornecida");
 
-  if (!target) {
-    res.writeHead(400);
-    return res.end('URL não fornecida');
+  try {
+    const response = await fetch(target);
+    let data = await response.text();
+
+    // 🔥 reescreve TODOS os links internos
+    const base = new URL(target).origin;
+
+    data = data.replace(/(https?:\/\/[^\s]+)/g, (match) => {
+      return `/proxy?url=${encodeURIComponent(match)}`;
+    });
+
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.send(data);
+
+  } catch (err) {
+    res.status(500).send("Erro no proxy");
   }
-
-  const client = target.startsWith('https') ? https : http;
-
-  client.get(target, (response) => {
-    res.writeHead(response.statusCode, response.headers);
-    response.pipe(res);
-  }).on('error', (err) => {
-    res.writeHead(500);
-    res.end('Erro: ' + err.message);
-  });
 });
 
-server.listen(PORT, () => {
-  console.log('Proxy rodando na porta ' + PORT);
+// rota recursiva
+app.get("/proxy", async (req, res) => {
+  const target = req.query.url;
+
+  try {
+    const response = await fetch(target);
+
+    if (target.includes(".m3u8")) {
+      let data = await response.text();
+
+      data = data.replace(/(https?:\/\/[^\s]+)/g, (match) => {
+        return `/proxy?url=${encodeURIComponent(match)}`;
+      });
+
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+      res.send(data);
+    } else {
+      const buffer = await response.buffer();
+      res.send(buffer);
+    }
+
+  } catch {
+    res.status(500).send("Erro proxy");
+  }
 });
+
+app.listen(3000, () => console.log("Proxy rodando"));
