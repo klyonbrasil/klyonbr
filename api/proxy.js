@@ -5,18 +5,20 @@ export default async function handler(req, res) {
   try {
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "http://ctdg.me/"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "http://ctdg.me/",
+        "Origin": "http://ctdg.me",
+        "Accept": "*/*",
+        "Connection": "keep-alive"
       }
     });
 
-    const contentType = response.headers.get("content-type");
+    const contentType = response.headers.get("content-type") || "";
 
-    // 🎯 SE FOR PLAYLIST (.m3u8)
-    if (contentType && contentType.includes("mpegurl")) {
+    // 🎯 PLAYLIST
+    if (contentType.includes("mpegurl")) {
       let text = await response.text();
 
-      // 🔥 REESCREVE LINKS RELATIVOS PRA PASSAR NO PROXY
       const base = url.split("/").slice(0, -1).join("/");
 
       text = text.replace(/(?!#)(.+\.ts)/g, (match) => {
@@ -29,18 +31,20 @@ export default async function handler(req, res) {
 
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
       res.setHeader("Access-Control-Allow-Origin", "*");
+
       return res.send(text);
     }
 
-    // 🎯 SE FOR SEGMENTO (.ts)
+    // 🎯 SEGMENTOS (.ts)
     const buffer = await response.arrayBuffer();
 
-    res.setHeader("Content-Type", contentType || "video/mp2t");
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Access-Control-Allow-Origin", "*");
 
     res.send(Buffer.from(buffer));
 
   } catch (err) {
+    console.error(err);
     res.status(500).send("Erro proxy");
   }
 }
