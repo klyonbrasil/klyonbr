@@ -1,208 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player IPTV</title>
+
+<link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet"/>
+<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+
+<style>
+body{background:#0d0d0d;color:#fff;font-family:sans-serif;text-align:center;padding:20px}
+button{padding:10px 20px;margin:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer}
+</style>
+</head>
+
+<body>
+
+<h2 id="status">Carregando...</h2>
+
+<button onclick="play(4350758)">Testar Canal</button>
+
+<div style="max-width:800px;margin:auto;">
+<video id="video" class="video-js vjs-default-skin" controls autoplay style="width:100%"></video>
+</div>
+
 <script>
 const BASE_URL = 'http://ctdg.me';
-const USER     = '39704219';
-const PASS     = '93785263';
+const USER = '39704219';
+const PASS = '93785263';
 
-let allChannels   = [];
-let vjsPlayer     = null;
-let currentStream = null;
-let watchdog      = null;
-let reconnecting  = false;
+let player;
 
-// ✅ FETCH USANDO PROXY (CORRETO)
-async function fetchJSON(url) {
-  const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
-
-  const r = await fetch(proxyUrl);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-
-  return await r.json();
+// PROXY
+function proxy(url){
+  return `/api/proxy?url=${encodeURIComponent(url)}`;
 }
 
-// ── CARREGAR CANAIS ──────────────────────────────────────────────────────────
-async function loadChannels() {
-  try {
-    const cats = await fetchJSON(
-      `${BASE_URL}/player_api.php?username=${USER}&password=${PASS}&action=get_live_categories`
-    );
-
-    const premCats = cats.filter(c => {
-      const name = c.category_name.toLowerCase();
-      return name.includes('jogos do dia') || name.includes('premiere') || name.includes('sportv') || name.includes('caze tv') || name.includes('espn');
-    });
-
-    if (!premCats.length) {
-      setStatus('Nenhuma categoria Premiere encontrada.');
-      return;
-    }
-
-    setStatus(`Categorias: ${premCats.map(c=>c.category_name).join(', ')} — carregando...`);
-
-    const res = await Promise.all(premCats.map(c =>
-      fetchJSON(`${BASE_URL}/player_api.php?username=${USER}&password=${PASS}&action=get_live_streams&category_id=${c.category_id}`)
-    ));
-
-    allChannels = res.flat();
-    setStatus(`${allChannels.length} canal(is) Premiere`);
-    renderChannels(allChannels);
-
-  } catch(e) {
-    setStatus('Erro: ' + e.message);
-    document.getElementById('channelList').innerHTML =
-      `<div class="empty-msg">Falha na conexão.<br>${e.message}</div>`;
-  }
+// STATUS SEGURO
+function setStatus(txt){
+  const el = document.getElementById("status");
+  if(el) el.textContent = txt;
 }
 
-function setStatus(t) {
-  document.getElementById('status').textContent = t;
-}
+// PLAYER
+function play(id){
+  setStatus("Conectando...");
 
-function renderChannels(channels) {
-  const list = document.getElementById('channelList');
-
-  if (!channels.length) {
-    list.innerHTML = '<div class="empty-msg">Nenhum canal.</div>';
-    return;
+  if(player){
+    player.dispose();
   }
 
-  list.innerHTML = channels.map((ch, i) => `
-    <div class="channel-item" id="ch_${ch.stream_id}"
-         onclick="playChannel(${ch.stream_id},'${esc(ch.name)}')">
-      <img src="${ch.stream_icon||''}" alt=""
-           onerror="this.src='https://placehold.co/34x34/1e0040/c084fc?text=TV'"/>
-      <div>
-        <div class="ch-name">${ch.name}</div>
-        <div class="ch-num">#${ch.num||(i+1)}</div>
-      </div>
-    </div>`).join('');
-}
+  player = videojs("video");
 
-function filterChannels() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  renderChannels(allChannels.filter(ch => ch.name.toLowerCase().includes(q)));
-}
+  const url = proxy(`${BASE_URL}/live/${USER}/${PASS}/${id}.m3u8`);
 
-// ── PLAYER ───────────────────────────────────────────────────────────────────
-function streamUrl(id) {
-  return `/api/proxy?url=${encodeURIComponent(
-    `${BASE_URL}/live/${USER}/${PASS}/${id}.m3u8`
-  )}`;
-}
-
-function playChannel(streamId, name) {
-  document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-
-  const el = document.getElementById('ch_' + streamId);
-  if (el) el.classList.add('active');
-
-  document.getElementById('playerTitle').textContent = name;
-
-  currentStream = streamId;
-  reconnecting  = false;
-  clearTimeout(watchdog);
-
-  initPlayer(streamId);
-}
-
-function initPlayer(streamId) {
-  const container = document.getElementById('playerContainer');
-
-  if (vjsPlayer) {
-    try { vjsPlayer.dispose(); } catch(_) {}
-    vjsPlayer = null;
-  }
-
-  container.innerHTML = `
-    <div class="player-box" id="playerBox">
-      <video id="mainVideo" class="video-js vjs-default-skin vjs-big-play-centered"
-             playsinline crossorigin="anonymous"></video>
-      <div class="badge loading" id="badge">Conectando...</div>
-    </div>`;
-
-  const url = streamUrl(streamId);
-
-  vjsPlayer = videojs('mainVideo', {
-    autoplay: true,
-    muted: false,
-    controls: true,
-    preload: 'auto',
-    liveui: true,
-    html5: {
-      vhs: {
-        overrideNative: true,
-        maxPlaylistRetries: 20,
-      }
-    }
+  player.src({
+    src: url,
+    type: "application/x-mpegURL"
   });
 
-  vjsPlayer.src({ src: url, type: 'application/x-mpegURL' });
-
-  vjsPlayer.on('playing', () => {
-    setBadge('live', 'Ao vivo');
-    reconnecting = false;
-    startWatchdog();
+  player.play().then(()=>{
+    setStatus("Ao vivo 🔴");
+  }).catch(()=>{
+    setStatus("Erro ao reproduzir");
   });
-
-  vjsPlayer.on('waiting', () => setBadge('loading', 'Buffering...'));
-  vjsPlayer.on('stalled', () => setBadge('loading', 'Buffering...'));
-  vjsPlayer.on('error', () => scheduleReconnect('erro'));
-
-  vjsPlayer.play().catch(() => {});
 }
 
-function setBadge(cls, text) {
-  const b = document.getElementById('badge');
-  if (!b) return;
-  b.className = 'badge ' + cls;
-  b.textContent = text;
-}
-
-function startWatchdog() {
-  clearTimeout(watchdog);
-
-  if (!vjsPlayer || vjsPlayer.isDisposed()) return;
-
-  let last = vjsPlayer.currentTime();
-
-  watchdog = setTimeout(function check() {
-    if (!vjsPlayer || vjsPlayer.isDisposed() || vjsPlayer.paused()) return;
-
-    const now = vjsPlayer.currentTime();
-
-    if (now === last && !reconnecting) {
-      scheduleReconnect('sem progresso');
-    } else {
-      last = now;
-      watchdog = setTimeout(check, 6000);
-    }
-  }, 6000);
-}
-
-function scheduleReconnect(reason) {
-  if (reconnecting) return;
-
-  reconnecting = true;
-  clearTimeout(watchdog);
-
-  setBadge('loading', `Reconectando...`);
-  console.log('[player] reconectando:', reason);
-
-  setTimeout(() => {
-    if (currentStream === null) return;
-
-    reconnecting = false;
-    initPlayer(currentStream);
-  }, 3000);
-}
-
-function esc(s) {
-  return String(s)
-    .replace(/\\/g,'\\\\')
-    .replace(/'/g,"\\'")
-    .replace(/"/g,'&quot;');
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  loadChannels();
+// INIT
+document.addEventListener("DOMContentLoaded", ()=>{
+  setStatus("Pronto para testar");
 });
 </script>
+
+</body>
+</html>
