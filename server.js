@@ -9,19 +9,48 @@ function fetchStream(target, res) {
 
   client.get(target, (response) => {
 
-    // 🔥 SE FOR REDIRECT (resolve seu problema)
-    if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+    // 🔥 segue redirect
+    if ([301,302,303,307,308].includes(response.statusCode)) {
       return fetchStream(response.headers.location, res);
     }
 
-    // headers importantes
-    res.writeHead(200, {
-      'Content-Type': response.headers['content-type'] || 'application/vnd.apple.mpegurl',
-      'Access-Control-Allow-Origin': '*'
-    });
+    const contentType = response.headers['content-type'] || '';
 
-    // stream direto (agora funciona)
-    response.pipe(res);
+    // 🔥 SE FOR M3U8 → REESCREVE
+    if (contentType.includes('application/vnd.apple.mpegurl') || target.includes('.m3u8')) {
+      let data = '';
+
+      response.on('data', chunk => data += chunk);
+
+      response.on('end', () => {
+
+        const base = target.substring(0, target.lastIndexOf('/') + 1);
+
+        const modified = data.split('\n').map(line => {
+          if (line && !line.startsWith('#')) {
+            let newUrl = line.startsWith('http') ? line : base + line;
+            return `/?url=${encodeURIComponent(newUrl)}`;
+          }
+          return line;
+        }).join('\n');
+
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.apple.mpegurl',
+          'Access-Control-Allow-Origin': '*'
+        });
+
+        res.end(modified);
+      });
+
+    } else {
+      // 🔥 SEGMENTOS (.ts)
+      res.writeHead(200, {
+        'Content-Type': response.headers['content-type'] || 'video/mp2t',
+        'Access-Control-Allow-Origin': '*'
+      });
+
+      response.pipe(res);
+    }
 
   }).on('error', (err) => {
     res.writeHead(500);
