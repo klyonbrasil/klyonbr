@@ -1,38 +1,29 @@
-import express from "express";
-import fetch from "node-fetch";
-
-const app = express();
-
-app.get("/", async (req, res) => {
-  try {
-    const url = req.query.url;
-    if (!url) return res.send("erro");
-
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "*/*",
-        "Connection": "keep-alive"
-      },
-      redirect: "follow"
-    });
-
-    if (!response.ok) {
-      return res.send("erro ao buscar stream");
-    }
-
-    // headers IMPORTANTES pro player funcionar
-    res.setHeader("Content-Type", response.headers.get("content-type") || "application/vnd.apple.mpegurl");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-
-    // 🔥 stream direto (isso resolve o crash)
-    response.body.pipe(res);
-
-  } catch (err) {
-    console.log(err);
-    res.send("erro");
-  }
-});
+import http from 'http';
+import https from 'https';
+import url from 'url';
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("rodando na porta", PORT));
+
+const server = http.createServer((req, res) => {
+  const query = url.parse(req.url, true).query;
+  const target = query.url;
+
+  if (!target) {
+    res.writeHead(400);
+    return res.end('URL não fornecida');
+  }
+
+  const client = target.startsWith('https') ? https : http;
+
+  client.get(target, (response) => {
+    res.writeHead(response.statusCode, response.headers);
+    response.pipe(res);
+  }).on('error', (err) => {
+    res.writeHead(500);
+    res.end('Erro: ' + err.message);
+  });
+});
+
+server.listen(PORT, () => {
+  console.log('Proxy rodando na porta ' + PORT);
+});
