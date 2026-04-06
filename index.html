@@ -1,31 +1,7 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Player IPTV</title>
-
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
-<style>
-body{background:#0d0d0d;color:#fff;font-family:sans-serif;text-align:center;padding:20px}
-button{padding:10px 20px;margin:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer}
-video{width:100%;max-width:800px}
-</style>
-</head>
-
-<body>
-
-<h2 id="status">Carregando...</h2>
-
-<button onclick="play()">Testar Canal</button>
-
-<video id="video" controls autoplay></video>
 
 <script>
 const BASE_URL = 'http://ctdg.me/live/39704219/93785263/3916293.m3u8';
-
-// SUA RAILWAY
 const PROXY = 'https://klyonbr-production.up.railway.app/?url=';
 
 const video = document.getElementById('video');
@@ -37,16 +13,20 @@ function setStatus(txt){
 function play(){
   setStatus("Conectando...");
 
-  const url = PROXY + encodeURIComponent(BASE_URL);
+  const proxiedUrl = PROXY + encodeURIComponent(BASE_URL);
 
   if(Hls.isSupported()){
     const hls = new Hls({
+      debug: false,
+
+      // 🔥 FORÇA PROXY EM TUDO
       xhrSetup: function(xhr, url) {
-        xhr.withCredentials = false;
+        const newUrl = PROXY + encodeURIComponent(url);
+        xhr.open('GET', newUrl, true);
       }
     });
 
-    hls.loadSource(url);
+    hls.loadSource(proxiedUrl);
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, function() {
@@ -58,17 +38,11 @@ function play(){
       setStatus("Erro ao reproduzir");
     });
 
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
-    video.addEventListener('loadedmetadata', function() {
-      video.play();
-      setStatus("Ao vivo 🔴");
-    });
+  } else {
+    video.src = proxiedUrl;
+    video.play();
   }
 }
 
 setStatus("Pronto para testar");
 </script>
-
-</body>
-</html>
