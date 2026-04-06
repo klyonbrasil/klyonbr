@@ -1,10 +1,13 @@
 export default async function handler(req, res) {
   const url = req.query.url;
-  if (!url) return res.status(400).send("Missing url");
+
+  if (!url) {
+    return res.status(400).send("Missing url");
+  }
 
   try {
     const response = await fetch(url, {
-      redirect: "follow", // 🔥 IMPORTANTE
+      redirect: "follow", // segue redirect (IMPORTANTE)
       headers: {
         "User-Agent": "Mozilla/5.0",
         "Referer": "http://ctdg.me/",
@@ -14,24 +17,20 @@ export default async function handler(req, res) {
 
     const contentType = response.headers.get("content-type") || "";
 
-    // PLAYLIST
-    if (contentType.includes("mpegurl")) {
+    // ───────── PLAYLIST (.m3u8) ─────────
+    if (contentType.includes("mpegurl") || url.includes(".m3u8")) {
       let text = await response.text();
 
+      // base da URL FINAL (com token!)
       const base = response.url.split("/").slice(0, -1).join("/");
 
+      // reescreve TODAS as linhas de mídia
       text = text.replace(/(?!#)([^\n]+)/g, (line) => {
-  if (line.startsWith("#")) return line;
+        if (!line.trim()) return line;
 
-  const absolute = line.startsWith("http")
-    ? line
-    : `${base}/${line}`;
-
-  return `/api/proxy?url=${encodeURIComponent(absolute)}`;
-});
-        const absolute = match.startsWith("http")
-          ? match
-          : `${base}/${match}`;
+        const absolute = line.startsWith("http")
+          ? line
+          : `${base}/${line}`;
 
         return `/api/proxy?url=${encodeURIComponent(absolute)}`;
       });
@@ -42,16 +41,16 @@ export default async function handler(req, res) {
       return res.send(text);
     }
 
-    // SEGMENTOS
+    // ───────── SEGMENTOS (.ts / .m4s / etc) ─────────
     const buffer = await response.arrayBuffer();
 
     res.setHeader("Content-Type", contentType);
     res.setHeader("Access-Control-Allow-Origin", "*");
 
-    res.send(Buffer.from(buffer));
+    return res.send(Buffer.from(buffer));
 
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Erro proxy");
+    console.error("Proxy error:", err);
+    return res.status(500).send("Erro no proxy");
   }
 }
