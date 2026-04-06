@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Player IPTV</title>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet"/>
+<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 
 <style>
 body{
@@ -24,11 +25,6 @@ button{
   border-radius:8px;
   cursor:pointer
 }
-video{
-  width:100%;
-  max-width:800px;
-  background:#000
-}
 </style>
 </head>
 
@@ -36,55 +32,51 @@ video{
 
 <h2 id="status">Pronto</h2>
 
-<button onclick="play()">Testar Canal</button>
+<button onclick="play(12398)">Testar Canal</button>
 
-<video id="video" controls autoplay></video>
+<div style="max-width:800px;margin:auto;">
+  <video id="video" class="video-js vjs-default-skin" controls autoplay style="width:100%"></video>
+</div>
 
 <script>
-const STREAM = 'http://ctdg.me/live/39704219/93785263/3916293.m3u8';
+const BASE_URL = 'https://suportejetflix.site';
+const USER = 'kaique';
+const PASS = 'paupp';
 
-// 👉 SEU PROXY DA RAILWAY
+// 🔥 SEU PROXY DA RAILWAY
 const PROXY = 'https://klyonbr-production.up.railway.app/?url=';
 
-let hls;
+let player;
 
+// STATUS
 function setStatus(txt){
   document.getElementById("status").textContent = txt;
 }
 
-function play(){
+// PLAYER
+function play(id){
   setStatus("Conectando...");
 
-  const video = document.getElementById('video');
-  const url = PROXY + encodeURIComponent(STREAM);
-
-  if(hls){
-    hls.destroy();
+  if(player){
+    player.dispose();
   }
 
-  if(Hls.isSupported()){
-    hls = new Hls();
+  player = videojs("video");
 
-    hls.loadSource(url);
-    hls.attachMedia(video);
+  const stream = `${BASE_URL}/live/${USER}/${PASS}/${id}.m3u8`;
 
-    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-      video.play();
-      setStatus("Ao vivo 🔴");
-    });
+  const url = PROXY + encodeURIComponent(stream);
 
-    hls.on(Hls.Events.ERROR, function(event, data) {
-      console.log(data);
-      setStatus("Erro ao reproduzir");
-    });
+  player.src({
+    src: url,
+    type: "application/x-mpegURL"
+  });
 
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = url;
-    video.addEventListener('loadedmetadata', function() {
-      video.play();
-      setStatus("Ao vivo 🔴");
-    });
-  }
+  player.play().then(()=>{
+    setStatus("Ao vivo 🔴");
+  }).catch(()=>{
+    setStatus("Erro ao reproduzir");
+  });
 }
 </script>
 
