@@ -42,7 +42,17 @@ export default async function handler(req, res) {
     }
 
     // ───────── SEGMENTOS (.ts / .m4s / etc) ─────────
-    const buffer = await response.arrayBuffer();
+    const readable = response.body;
+
+res.setHeader("Content-Type", contentType);
+res.setHeader("Access-Control-Allow-Origin", "*");
+
+if (readable) {
+  readable.pipe(res);
+} else {
+  const buffer = await response.arrayBuffer();
+  res.send(Buffer.from(buffer));
+}
 
     res.setHeader("Content-Type", contentType);
     res.setHeader("Access-Control-Allow-Origin", "*");
