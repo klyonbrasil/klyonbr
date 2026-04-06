@@ -192,7 +192,9 @@ function filterChannels() {
 
 // ── PLAYER ───────────────────────────────────────────────────────────────────
 function streamUrl(id) {
-  return `${BASE_URL}/live/${USER}/${PASS}/${id}.m3u8`;
+  return `/api/proxy?url=${encodeURIComponent(
+  `${BASE_URL}/live/${USER}/${PASS}/${id}.m3u8`
+)}`;
 }
 
 function playChannel(streamId, name) {
