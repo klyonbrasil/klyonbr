@@ -202,5 +202,7 @@ function esc(s) {
     .replace(/"/g,'&quot;');
 }
 
-loadChannels();
+document.addEventListener("DOMContentLoaded", () => {
+  loadChannels();
+});
 </script>
