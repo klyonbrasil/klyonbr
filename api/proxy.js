@@ -4,22 +4,21 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(url, {
+      redirect: "follow", // 🔥 IMPORTANTE
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "User-Agent": "Mozilla/5.0",
         "Referer": "http://ctdg.me/",
-        "Origin": "http://ctdg.me",
-        "Accept": "*/*",
-        "Connection": "keep-alive"
+        "Origin": "http://ctdg.me"
       }
     });
 
     const contentType = response.headers.get("content-type") || "";
 
-    // 🎯 PLAYLIST
+    // PLAYLIST
     if (contentType.includes("mpegurl")) {
       let text = await response.text();
 
-      const base = url.split("/").slice(0, -1).join("/");
+      const base = response.url.split("/").slice(0, -1).join("/");
 
       text = text.replace(/(?!#)(.+\.ts)/g, (match) => {
         const absolute = match.startsWith("http")
@@ -35,7 +34,7 @@ export default async function handler(req, res) {
       return res.send(text);
     }
 
-    // 🎯 SEGMENTOS (.ts)
+    // SEGMENTOS
     const buffer = await response.arrayBuffer();
 
     res.setHeader("Content-Type", contentType);
