@@ -3,63 +3,60 @@ import express from "express";
 const app = express();
 
 app.get("/", async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.send("URL não fornecida");
+  const url = req.query.url;
+  if (!url) return res.send("sem url");
 
   try {
-    const response = await fetch(target);
+    const r = await fetch(url);
 
-    // se for playlist
-    if (target.includes(".m3u8")) {
-      let data = await response.text();
+    if (url.includes(".m3u8")) {
+      let text = await r.text();
 
-      data = data.replace(/(https?:\/\/[^\s]+)/g, (match) => {
-        return `${req.protocol}://${req.get("host")}/proxy?url=${encodeURIComponent(match)}`;
+      text = text.replace(/(https?:\/\/[^\s]+)/g, (m) => {
+        return `${req.protocol}://${req.get("host")}/proxy?url=${encodeURIComponent(m)}`;
       });
 
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-      return res.send(data);
+      return res.send(text);
     }
 
-    // se for vídeo/segmento
-    const buffer = await response.arrayBuffer();
+    const buffer = await r.arrayBuffer();
     res.send(Buffer.from(buffer));
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Erro no proxy");
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("erro");
   }
 });
 
-// rota proxy recursiva
 app.get("/proxy", async (req, res) => {
-  const target = req.query.url;
+  const url = req.query.url;
 
   try {
-    const response = await fetch(target);
+    const r = await fetch(url);
 
-    if (target.includes(".m3u8")) {
-      let data = await response.text();
+    if (url.includes(".m3u8")) {
+      let text = await r.text();
 
-      data = data.replace(/(https?:\/\/[^\s]+)/g, (match) => {
-        return `${req.protocol}://${req.get("host")}/proxy?url=${encodeURIComponent(match)}`;
+      text = text.replace(/(https?:\/\/[^\s]+)/g, (m) => {
+        return `${req.protocol}://${req.get("host")}/proxy?url=${encodeURIComponent(m)}`;
       });
 
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-      return res.send(data);
+      return res.send(text);
     }
 
-    const buffer = await response.arrayBuffer();
+    const buffer = await r.arrayBuffer();
     res.send(Buffer.from(buffer));
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Erro proxy");
+  } catch (e) {
+    console.log(e);
+    res.status(500).send("erro proxy");
   }
 });
 
-// 🔥 PORTA CORRETA
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log("Rodando na porta", PORT);
+  console.log("rodando na porta", PORT);
 });
