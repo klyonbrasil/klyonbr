@@ -20,7 +20,15 @@ export default async function handler(req, res) {
 
       const base = response.url.split("/").slice(0, -1).join("/");
 
-      text = text.replace(/(?!#)(.+\.ts)/g, (match) => {
+      text = text.replace(/(?!#)([^\n]+)/g, (line) => {
+  if (line.startsWith("#")) return line;
+
+  const absolute = line.startsWith("http")
+    ? line
+    : `${base}/${line}`;
+
+  return `/api/proxy?url=${encodeURIComponent(absolute)}`;
+});
         const absolute = match.startsWith("http")
           ? match
           : `${base}/${match}`;
