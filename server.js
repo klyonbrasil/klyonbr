@@ -2,12 +2,22 @@ import express from "express";
 
 const app = express();
 
+const headers = {
+  "User-Agent": "Mozilla/5.0",
+  "Accept": "*/*",
+  "Connection": "keep-alive"
+};
+
 app.get("/", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.send("sem url");
 
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { headers });
+
+    if (!r.ok) {
+      return res.status(500).send("erro fetch");
+    }
 
     if (url.includes(".m3u8")) {
       let text = await r.text();
@@ -24,7 +34,7 @@ app.get("/", async (req, res) => {
     res.send(Buffer.from(buffer));
 
   } catch (e) {
-    console.log(e);
+    console.log("ERRO:", e);
     res.status(500).send("erro");
   }
 });
@@ -33,7 +43,11 @@ app.get("/proxy", async (req, res) => {
   const url = req.query.url;
 
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { headers });
+
+    if (!r.ok) {
+      return res.status(500).send("erro proxy");
+    }
 
     if (url.includes(".m3u8")) {
       let text = await r.text();
@@ -50,7 +64,7 @@ app.get("/proxy", async (req, res) => {
     res.send(Buffer.from(buffer));
 
   } catch (e) {
-    console.log(e);
+    console.log("ERRO:", e);
     res.status(500).send("erro proxy");
   }
 });
@@ -58,5 +72,5 @@ app.get("/proxy", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("rodando na porta", PORT);
+  console.log("rodando", PORT);
 });
